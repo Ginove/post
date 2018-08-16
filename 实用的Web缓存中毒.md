@@ -1,8 +1,4 @@
----
-title: 实战Web缓存投毒
-date: 2018-08-12 10:30:30
-tags: Web Security
----
+
 # 实战Web缓存投毒
 ***
 本文翻译自: https://portswigger.net/blog/practical-web-cache-poisoning
@@ -16,7 +12,7 @@ Web缓存投毒长期以来一直是一个难以捉摸的漏洞，是一种“�
 
 我将通过漏洞来说明和开发这种技术。这些漏洞使我能够控制众多流行的网站和框架，从简单的单一请求攻击发展到劫持JavaScript，跨越缓存层，颠覆社交媒体和误导云服务的复杂漏洞利用链。我将讨论防御缓存投毒的问题，并发布推动该研究开源的Burp Suite社区扩展。
 
-这篇文章也会作为[可打印的白皮书](https://portswigger.net/kb/papers/7q1e9u9a/web-cache-poisoning.pdf)提供，并是我的[ Black Hat USA presentation](https://www.blackhat.com/us-18/briefings/schedule/index.html#practical-web-cache-poisoning-redefining-unexploitable-10200)（美国黑帽大会演示文稿）， 因此幻灯片和视频将在适当的时候提供。
+这篇文章也会作为[可打印的pdf](https://portswigger.net/kb/papers/7q1e9u9a/web-cache-poisoning.pdf)提供，而且它是我的[ Black Hat USA presentation](https://www.blackhat.com/us-18/briefings/schedule/index.html#practical-web-cache-poisoning-redefining-unexploitable-10200)（美国黑帽大会演示文稿）， 因此幻灯片和视频将在适当的时候提供。
 
 ## 核心概念
 ### 缓存101
@@ -35,9 +31,20 @@ Web缓存投毒长期以来一直是一个难以捉摸的漏洞，是一种“�
 缓存使用`缓存键`的概念解决了这个问题 - 缓存键的一些特定组件用于完全标识所请求的资源。在上面的请求中，我用橙色突出显示了典型缓存键中包含的值。
 
 这意味着缓存认为以下两个请求是等效的，并使用从第一个请求缓存的响应来响应第二个请求：
-![c2](https://xzfile.aliyuncs.com/media/upload/picture/20180813221346-17e5b2aa-9f03-1.png "c2")
-
-![c3](https://xzfile.aliyuncs.com/media/upload/picture/20180813221359-1fab1ef8-9f03-1.png "c3")
+```
+GET /blog/post.php?mobile=1 HTTP/1.1
+Host: example.com
+User-Agent: Mozilla/5.0 … Firefox/57.0
+Cookie: language=pl;
+Connection: close
+```
+```
+GET /blog/post.php?mobile=1 HTTP/1.1
+Host: example.com
+User-Agent: Mozilla/5.0 … Firefox/57.0
+Cookie: language=en;
+Connection: close
+```
 因此，该页面将提供给第二位访问者错误的语言格式。这暗示了这个问题 - 任何由未加密的输入触发的响应差异，都可以存储并提供给其他用户。理论上，站点可以使用“Vary”响应头来指定应该键入的请求头。在实际中，Vary协议头仅初步使用，像Cloudflare这样的CDN却完全忽略它，人们甚至没有意识到他们的应用程序支持基于任何协议头的输入。
 
 这会导致许多意想不到的破坏，特别是当有人故意开始利用它时，它的危害才会真正开始体现。
@@ -81,8 +88,16 @@ Cache-Control: public, no-cache
 <meta property="og:image" content="https://canary/cms/social.png" />
 ```
 在这里，我们可以看到应用程序使用X-Forwarded-Host协议头在元标记(meta tag)内生成打开图片的 URL。下一步是探索它是否可利用 - 我们将从一个简单的[跨站点脚本](https://portswigger.net/kb/issues/00200300_cross-site-scripting-reflected) Payload开始：
+```
+GET /en?dontpoisoneveryone=1 HTTP/1.1
+Host: www.redhat.com
+X-Forwarded-Host: a."><script>alert(1)</script>
 
-![c5]()
+HTTP/1.1 200 OK
+Cache-Control: public, no-cache
+…
+<meta property="og:image" content="https://a."><script>alert(1)</script>"/> 
+```
 
 看起来不错 - 我们可以确认做出一个响应，它将对任何查看它的人执行任意JavaScript。最后一步是检查此响应是否已存储在缓存中，以便将其传递给其他用户。不要让'Cache Control: no-cache' 协议头影响你 - 因此尝试攻击总是比假设它不起作用好。您可以先通过重新发送没有恶意协议头的请求进行验证，然后直接在另一台计算机上的浏览器中获取URL：
 ```
@@ -93,7 +108,7 @@ HTTP/1.1 200 OK
 …
 <meta property="og:image" content="https://a."><script>alert(1)</script>"/>
 ```
-这很简单。尽管返回响应中没有任何表明缓存存在的协议头，但我们的漏洞利用已被明确缓存。DNS快速查询提供了解释 - www.redhat.com是www.redhat.com.edgekey.net的CNAME(别名)，表明它正在使用Akamai的CDN。
+这很简单。尽管返回响应中没有任何表明缓存存在的协议头，但我们的漏洞利用已被明确缓存。DNS快速查询提供了解释 - www.redhat.com 是 www.redhat.com.edgekey.net 的CNAME(别名)，表明它正在使用Akamai的CDN。
 
 ### 谨慎投毒
 在这一点上，我们已经证明可以通过使`https://www.redhat.com/en?dontpoisoneveryone=1`投毒来进行攻击，而且避免了影响网站的实际访问者。为了真正使博客的主页投毒并使所有的后续访问者访问我们的漏洞，我们需要确保在缓存的响应过期后我们将第一个请求发送到主页。
@@ -173,7 +188,7 @@ HTTP/1.1 200 OK
 }
 ```
 
-`recipes`看起来像：
+`Recipes`看起来像：
 ```
 [{
   "id": 403,
