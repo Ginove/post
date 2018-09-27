@@ -1,0 +1,34 @@
+## A主机 ping B主机，经过交换机C的过程
+A ip:192.168.1.1
+B ip:192.168.1.2
+
+```flow
+st=>start: Start
+op1=>operation:  
+1.A广播发“APR请求”请求ip地址为192.168.1.2的设备的MAC地址
+
+2.A的请求经过交换机C,C学习，如果C中没有和A相关的路由信息，则记录A的MAC地址，再泛洪
+
+3.B单播对A进行ARP应答 （B私信A ）
+
+4.经过交换机C，C学习，记录B的MAC地址，并把B的MAC地址转发给A
+
+5.A封装数据帧并发给B
+
+6.C接收，查询MAC表，解封数据帧，查出目的MAC所对应的端口，重新封装，再转发给B
+
+7.B接收，解封数据帧。然后封装另一数据帧发送给C。（向C表示收到了A的消息）
+
+8.C接收，解封，查出目的MAC（A）所对应的端口，重新封装，转发给A。（表示B向A发送了一个消息）
+
+9.A接收，解封装。（收到了B的回信）
+
+```
+flow
+st=>start: Start
+op=>operation: Your Operation
+cond=>condition: Yes or No?
+e=>end
+st->op->cond
+cond(yes)->e
+cond(no)->op
