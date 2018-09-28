@@ -1,0 +1,6 @@
+# 广域网
+广域网中经常会使用串行链路来提供远距离的数据传输，高级数据链路控制HDLC（ High-Level Data Link Control ）和点对点协议PPP（ Point to Point Protocol）是两种典型的串口封装协议。
+
+## HDLC和PPP的工作原理
+
+## HDLC和PPP的基本配置
