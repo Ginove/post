@@ -1,0 +1,109 @@
+## 滥用持续集成系统Jenkins
+### 介绍
+Jenkins是一个领先的开源自动化服务平台，一直备受开发团队的欢迎。最近，我们观察到攻击者使用大规模的[Jenkins服务器](https://jenkins.io/)来部署[密码器](https://www.crowdstrike.com/blog/cryptomining-harmless-nuisance-disruptive-threat/。他们还使用Jenkins启动了针对性较强的漏洞，以保持对开发者环境的访问。有几个记录良好的博客文章讨论了通过漏洞，Web控制台和Post-Exploitation来利用和获取Jenkins的权限。
+
+本博文侧重于阐述攻击者经常使用的访问、维护和泄露数据的技术。CrowdStrike的红队利用这些技术在开发环境受到威胁的情况下进行对手仿真练习。
+
+### 定位Jenkins
+根据使用情况的不同，定位和识别Jenkins服务器也会有所不同。对于很多红队来说，在内部网络的某个地方可以访问Jenkins。对这些服务器的访问权限可以通过多种方式获得。最常见方法是使用近期暴露的漏洞并利用漏洞的攻击者、身份验证插件中的错误配置以及先前获得的凭证。
+
+漏洞利用并不总是用在目标漏洞上。然而，近期观察到Jenkins漏洞被多次使用。
+
+### Java反序列化
+可以利用Java反序列化漏洞（CVE-2017-1000353）在未修补的Jenkins服务器上获得远程代码执行。Exploit-db（https://www.exploit-db.com/exploits/41965/）包含一个可以用来测试这个问题的可修改的概念验证（POC）。
+
+在没有使用漏洞利用的情况下，攻击者通常利用先前受损的凭证或错误配置的Jenkins服务器来获取访问权限。默认情况下，Jenkins需要身份验证，但这点通常会被开发团队所更改，并且可能会使服务器更加容易受到攻击，这具体要取决于配置方式。Jenkins支持各种身份验证插件，包括LDAP，Kerberos单点登录（SSO），SAML等。最常见的错误配置之一是全局安全配置中的匿名读访问委派，如下所示。
+![Picture]()
+
+虽然默认情况下未启用，但可以利用匿名读取访问来访问构建历史记录和凭据插件。在某些情况下，还启用了匿名脚本控制台访问，这将允许对Jave运行时间的完全访问，从而允许命令执行。强烈建议锁定对Jenkins的访问，尤其是Web控制台，因为错误配置的身份验证插件是攻击者获取Jenkins访问权限并进一步完成任务的常见形式。
+
+身份验证插件允许开发团队自定义登录到他们的环境。这些插件因组织而异，例如，没有Active Directory的组织可能会选择使用[Google的登录插件](https://wiki.jenkins.io/display/JENKINS/Google+Login+Plugin)。需要注意的是，不管以什么方式实现，都应该正确保护这些身份验证方法。目前已经有攻击者利用身份验证方法来获取Web控制台访问权限的实例，因此，应该针对边缘情况对这些方法进行全面测试。例如，如果使用[Active Directory插件](https://wiki.jenkins.io/display/JENKINS/Active+Directory+plugin)，那是否所有活动目录用户都允许对Web控制台进行身份验证？如果是这样，已获得域凭据的攻击者将能够验证并尝试利用Jenkins服务器。
+
+### Post-Exploitation Jenkins
+Jenkins是一个支持各种操作系统的Java应用程序，最常见的操作系统有Windows，Ubuntu / Debian和Red Hat / CentOS。虽然Jenkins Web应用程序的功能基本上是相同的，但Windows和Linux安装之间还是存在一些显著的差异，如下所述：
+
+#### Windows
+默认情况下，当安装在Windows上时，Jenkins将使用NT AUTHORITY \ SYSTEM帐户。强烈建议更改此用户帐户，因为SYSTEM权限帐户对Windows系统具有完全权限。如果要访问脚本控制台，攻击者可以相对更轻易地完全控制系统。一般情况下，建议您使用本地系统上具有有限权限的服务帐户。
+
+#### Linux
+默认情况下，当安装在Linux上时，Jenkins会创建一个服务帐户。且此用户帐户默认没有获得sudo或root访问权限，但是，检查一下还是很有必要的。如果要访问脚本控制台，则攻击者将拥有与Jenkins服务帐户相同的权限。
+
+#### 脚本控制台
+[Jenkins脚本控制台](https://wiki.jenkins.io/display/JENKINS/Jenkins+Script+Console)是一个在Web控制台允许用户执行Jenkins Groovy脚本的可视应用程序。当访问它的时候，脚本控制台允许完全访问Java，并且可以利用它在Java运行时间进程中执行任何操作。最值得留意的是执行命令的能力，如下所示，适用于Linux和Windows安装。
+![Piture]()
+
+在这儿，攻击者可以生成信标，列出文件，解密存储的密码等。请注意，使用[execute]()方法，所有命令都将作为Java进程的子进程来运行（Windows上的Java.exe和/ usr） Ubuntu上的/ bin / java）。
+
+在检测恶意Jenkins服务器活动时，鉴别可疑进程树可能是一个有用的指示器。例如，通过脚本控制台生成PowerShell命令时，会发现以下情况：
+![Piture]()
+
+在某些情况下，攻击者可能会选择通过使用内置的Java方法来避免产生命令和控制的方法（C2），而不是依靠PowerShell来执行post-exploitation。在许多Jenkins折中方案中，攻击者将会试着访问这些文件：`credentials.xml`，`master.key`和`hudson.util.Secret`。这些文件负责加密重要秘密信息的，在某些情况下，还负责存储凭据。`master.key`文件用于加密`hudson.util.Secret`文件，`hudson.util.Secret`文件用于加密凭证插件中的秘密信息。`credentials.xml`文件则包含Jenkins用户的加密密码和密钥。
+
+获得这些文件的方法有很多种。如果为服务器建立了SSH访问或C2，则可以直接从服务器复制这些文件并将其解压缩。在此示例中，攻击者利用内置的Java方法通过利用以下Groovy脚本来获取这些文件：
+![Picture]()
+
+
+使用上面的Groovy脚本，攻击者能够检索每个文件而不会产生潜在的恶意子进程。攻击者还使用 [Base64 class method](http://docs.groovy-lang.org/2.4.3/html/api/org/codehaus/groovy/runtime/EncodingGroovyMethods.html)来检索二进制格式的`hudson.util.Secret`文件。我门可以使用Jenkins测试实例来查看这个脚本的用法。
+![Picture]()
+
+
+存储在`credentials.xml`文件中的密码短语也可以使用以下脚本从脚本控制台中直接解密：
+![Picture]()
+
+访问Jenkins脚本控制台为攻击者提供了各种方法来获取Jenkins服务器上关键且敏感的文件，因此应禁用或禁止访问。
+
+### 作业配置/创建
+当无法访问脚本控制台时，用户可以查看Web控制台并且有可能通过安排作业或查看历史记录，仍就可以获取有价值的信息，这点还是得看配置。在几项评估中，CrowdStrike红队确定了可以重新配置工作但未被创建的情况，反之亦然。
+
+通过查看默认页面，可以通过Web控制台确定经过身份验证的用户的权限，如示例所示。在该方案中，用户无需进行身份验证即可配置/创建作业。
+![Picture]()
+
+通过创建作业，攻击者可以在Jenkins服务器上创建本地作业并使用它来执行命令，然后在控制台输出中查看结果。允许用户访问历史记录和控制台输出也可能向任何具有Web控制台访问权限的人泄漏秘密，源代码，密钥等。故而，应检查控制台输出和历史记录，以查找可能被攻击者利用的敏感信息。
+
+为了在具有作业创建权限的Jenkins服务器上执行命令，需要先创建具有给定项目名称的Freestyle项目。
+![Picture]()
+创建后，可以在Freestyle项目中配置各种选项。为简单起见，请忽略所有选项，然后单击“添加构建步骤”。
+
+对于该项测试实例，我们将其配置为“执行Windows批处理命令”并运行一些基本命令，包括添加本地管理员帐户。但是，这可能是在Windows批处理文件（.bat）中运行的任何内容。
+
+单击“保存”后，可以通过从Web控制台选择“立即生成”选项来创建新的Freestyle项目。
+![Picture]()
+创建完成后，可以在控制台输出上查看输出，如下所示。
+![Picture]()
+请务必注意，由于Jenkins服务器配置为允许匿名创建，因此与Freestyle项目创建关联的用户是未知的。
+
+创建作业后，可能性与脚本控制台访问几乎相同，但是对于攻击者只能重新配置作业的情况又该当如何呢？这些情况几乎相同，但是，攻击者必须编辑现有作业并安排创建。在下面的示例中，我们将重新配置“BackupProject”Freestyle项目以打印存储在凭证插件中的秘密信息。首先，选择一个可修改的项目的“配置”选项。
+![Picture]()
+选择之后，攻击者可以通过重新配置创建环境的方法，在环境变量中存储机密和凭据。然后，可以在创建步骤中使用这些环境变量并输出到文件。此时，攻击者可以将结果输出到全局可访问的userContent文件夹（C：/ Program Files（x86）/ Jenkins / userContent /）。
+
+在Windows系统环境中，使用％字符，而Unix系统则使用$字符来访问变量。
+![Picture]()
+创建好修改后的项目后，可以在以下位置查看结果： http：//jenkins/userContent/out.txt
+![Picture]()
+[userContent](https://wiki.jenkins.io/display/JENKINS/User+Content)文件夹是一个特殊的文件夹，其中的内容并不受超出总体/读取访问的任何访问控制。在攻击者可能为现有的创建项目进行再修改的情况下，这个文件夹可以是存储凭证/秘密控制台输出的一个可行的位置。每次创建后，控制台输出结果（包括凭据/机密）都可以重定向到此文件夹。
+
+### 结论
+像Jenkins这样的自动化系统是对手高度重视的目标。管理员花时间保护和审核Jenkins安装的过程显得至关重要，因为这些系统很可能成为网络中攻击者的目标。
+
+为了解决这个问题，CrowdStrike建议Jenkins管理员根据最近攻击者活动的观察结果来注意以下事项：
+
+ 1. 没有身份验证，任何人都可以访问Jenkins Web控制台吗？
+    - 这包括脚本控制台访问吗？
+    - 他们可以查看凭据或创建历史记录吗？
+    - 他们可以创建或安排工作吗？
+    - 
+ 2. 经过身份验证的用户拥有哪些权限？
+    - 这包括脚本控制台访问吗？
+    - 他们可以查看凭据或创建历史记录吗？
+    - 他们可以创建或安排工作吗？
+ 3. 是否有敏感信息存储在历史记录或控制台输出中？
+ 4. Jenkins可以通过互联网访问吗？您的组织是否需要它？
+ 5. Jenkins服务帐户是否只有为执行其功能所需要的最少权限？
+ 6. 凭证如何存储？
+    - 谁可以访问`credentials.xml`, `master.key`，和`hudson.util.Secret`？
+上面的列表并不是保护Jenkins的完整指南，而是依赖于组织。
+
+#### 了解更多：
+- 有关CrowdStrike Incident Response，Compromise Assessment or Threat Hunting offerings的更多信息，请访问[CrowdStrike服务页面](https://www.crowdstrike.com/services/)或发送邮件到Service@crowdstrike.com与我们联系。
+- 访问[CrowdStrike Falcon](https://www.crowdstrike.com/products/)产品页面，了解有关下一代终端保护的更多信息。
+- 为自己测试CrowdStrike下一代AV。立即开始[免费试用Falcon Prevent™](https://www.crowdstrike.com/resources/free-trials/try-falcon-prevent/?ctm_source=Website&ctm_medium=Website_Banner&ctm_campaign=Trial_Top_Navigation)。
