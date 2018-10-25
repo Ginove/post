@@ -50,14 +50,14 @@ Jenkins是一个支持各种操作系统的Java应用程序，最常见的操作
 
 在检测恶意Jenkins服务器活动时，检测恶意可疑的进程树是一个有用的指标。例如，通过脚本控制台生成PowerShell命令时，会发现以下情况：
 
-![][https://ginove-1252770243.cos.ap-guangzhou.myqcloud.com/jenkins/5.png)
+![](https://ginove-1252770243.cos.ap-guangzhou.myqcloud.com/jenkins/5.png)
 
 
 在某些情况下，攻击者可能会选择通过使用内置的Java方法来避免产生命令和控制的方法，而不是依靠PowerShell来执行后期利用。在许多Jenkins妥协方案中，攻击者将会试着访问这些文件：`credentials.xml`，`master.key`和`hudson.util.Secret`。这些文件负责加密重要秘密信息的，在某些情况下，还负责存储凭据。`master.key`文件用于加密`hudson.util.Secret`文件，`hudson.util.Secret`文件用于加密凭证插件中的秘密信息。`credentials.xml`文件则包含Jenkins用户的加密密码和密钥。
 
 获得这些文件的方法有很多种。如果为服务器建立了SSH访问或命令和控制方法，则可以直接从服务器复制这些文件并将其解压缩。在此示例中，攻击者利用内置的Java方法通过利用以下Groovy脚本来获取这些文件：
 
-![](https://ginove-1252770243.cos.ap-guangzhou.myqcloud.com/jenkins/6.jpg)
+![](https://ginove-1252770243.cos.ap-guangzhou.myqcloud.com/jenkins/6.png)
 
 使用上面的Groovy脚本，攻击者能够检索每个文件而不会产生潜在的恶意子进程。攻击者还使用 [Base64类方法](http://docs.groovy-lang.org/2.4.3/html/api/org/codehaus/groovy/runtime/EncodingGroovyMethods.html)来检索二进制格式的`hudson.util.Secret`文件。我门可以使用Jenkins测试实例来查看这个脚本的用法。
 
