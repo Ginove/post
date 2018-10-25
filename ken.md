@@ -10,11 +10,11 @@
 ![](https://ginove-1252770243.cos.ap-guangzhou.myqcloud.com/jenkins/1.jpg)
 
 ### 介绍
-Jenkins是业界领先的开源自动化服务平台，在开发团队中很受欢迎。最近，我们观察到攻击者瞄准了大规模的[Jenkins服务器](https://jenkins.io/)，以部署[密码器](https://www.crowdstrike.com/blog/cryptomining-harmless-nuisance-disruptive-threat/。他们还发起了针对Jenkins目标的违规行为，以保持拥有开发者环境的访问权限。有几篇很好的博客文章讨论了通过漏洞，Web控制台和后期利用(Post-Exploitation)来获取Jenkins的权限。
+Jenkins是业界领先的开源自动化服务平台，在开发团队中很受欢迎。最近，我们观察到攻击者瞄准了大规模的[Jenkins服务器](https://jenkins.io/)，以部署[加密货币挖矿软件](https://www.crowdstrike.com/blog/cryptomining-harmless-nuisance-disruptive-threat/。他们还对Jenkins发起了针对性地攻击，以保持拥有开发者环境的访问权限。有几篇很好的博客文章讨论了通过漏洞，Web控制台和后期利用(Post-Exploitation)来获取Jenkins的权限。
 
 本博文侧重于阐述攻击者获得访问、维护和渗透数据的常用技术。在开发环境受到损害的情况下，CrowdStrike的红客团队利用这些技术进行对抗模拟演练。
 
-### 针对Jenkins
+### 定位Jenkins
 根据使用情况的不同，定位和识别出Jenkins服务器也会有所不同。对于很多红客团队来说，在内部网络的某个地方可以访问Jenkins，对这些服务器的访问权限也可以通过多种方式获得。最常见的方法是使用最近公开的漏洞和利用它们、认证插件中的错误配置以及先前获得的凭据。
 
 漏洞利用并不总是用于有针对性的破坏。然而，近期观察到Jenkins漏洞被多次利用。
@@ -117,7 +117,7 @@ Jenkins是一个支持各种操作系统的Java应用程序，最常见的操作
 [userContent](https://wiki.jenkins.io/display/JENKINS/User+Content)文件夹是一个特殊的文件夹，其中的内容并不受`Overall/Read`权限访问之外的任何访问控制。在攻击者可能为现有的创建项目进行再修改的情况下，这个文件夹可以是存储凭证/秘密控制台输出的一个可行的位置。每次创建后，控制台输出结果（包括凭据/机密）都可以重定向到此文件夹。
 
 ### 结论
-像Jenkins这样的自动化系统是对手高度重视的目标。管理员花时间保护和审核Jenkins安装的过程显得至关重要，因为这些系统很可能成为网络中攻击者的目标。
+像Jenkins这样的自动化系统是对手高度重视的目标。管理员花时间保护和审核Jenkins安装的过程显得至关重要，因为这些系统很可能成为网络内鬼的目标。
 
 为了解决这个问题，CrowdStrike建议Jenkins管理员根据最近攻击者活动的观察结果来注意以下事项：
 
