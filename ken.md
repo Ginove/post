@@ -61,12 +61,12 @@ Jenkins是一个支持各种操作系统的Java应用程序，最常见的操作
 
 使用上面的Groovy脚本，攻击者能够检索每个文件而不会产生潜在的恶意子进程。攻击者还使用 [Base64类方法](http://docs.groovy-lang.org/2.4.3/html/api/org/codehaus/groovy/runtime/EncodingGroovyMethods.html)来检索二进制格式的`hudson.util.Secret`文件。我门可以使用Jenkins测试实例来查看这个脚本的用法。
 
-![](https://ginove-1252770243.cos.ap-guangzhou.myqcloud.com/jenkins/7.jpg)
+![](https://ginove-1252770243.cos.ap-guangzhou.myqcloud.com/jenkins/7.png)
 
 存储在`credentials.xml`文件中的密码短语也可以使用以下脚本从脚本控制台中直接解密：
 ![](https://ginove-1252770243.cos.ap-guangzhou.myqcloud.com/jenkins/8.jpg)
 
-![](https://ginove-1252770243.cos.ap-guangzhou.myqcloud.com/jenkins/9.jpg)
+![](https://ginove-1252770243.cos.ap-guangzhou.myqcloud.com/jenkins/9.png)
 
 访问Jenkins脚本控制台为攻击者提供了各种方法来获取Jenkins服务器上关键且敏感的文件，因此应禁用或禁止访问。
 
