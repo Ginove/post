@@ -75,44 +75,44 @@ Jenkins是一个支持各种操作系统的Java应用程序，最常见的操作
 
 通过查看默认页面，可以通过Web控制台确定经过身份验证的用户的权限，如示例所示。在该方案中，用户无需进行身份验证即可配置/创建Job。
 
-![](https://ginove-1252770243.cos.ap-guangzhou.myqcloud.com/jenkins/10.jpg)
+![](https://ginove-1252770243.cos.ap-guangzhou.myqcloud.com/jenkins/10.png)
 
 通过创建Job，攻击者可以在Jenkins服务器上创建本地Job并使用它来执行命令，然后在控制台输出中查看结果。允许用户访问构建历史和控制台输出，也可能向任何具有Web控制台访问权限的人泄漏秘密，源代码，密钥等。故而，应检查控制台输出和历史记录，以查找可能被攻击者利用的敏感信息。
 
 为了在具有Job创建权限的Jenkins服务器上执行命令，需要先创建具有给定项目名称的Freestyle项目。
 
-![](https://ginove-1252770243.cos.ap-guangzhou.myqcloud.com/jenkins/11.jpg)
+![](https://ginove-1252770243.cos.ap-guangzhou.myqcloud.com/jenkins/11.png)
 
 创建后，可以在Freestyle项目中配置各种选项。为简单起见，请忽略所有选项，然后单击“Add build step”。
 
-![](https://ginove-1252770243.cos.ap-guangzhou.myqcloud.com/jenkins/12.jpg)
+![](https://ginove-1252770243.cos.ap-guangzhou.myqcloud.com/jenkins/12.png)
 
 对于该项测试实例，我们将其配置为“执行Windows批处理命令”并运行一些基本命令，包括添加本地管理员帐户。但是，这也可能是在Windows批处理文件（.bat）中运行任何内容。
-![](https://ginove-1252770243.cos.ap-guangzhou.myqcloud.com/jenkins/13.jpg)
+![](https://ginove-1252770243.cos.ap-guangzhou.myqcloud.com/jenkins/13.png)
 
 单击“save”后，可以通过从Web控制台选择“Build Now”选项来创建新的Freestyle项目。
 
-![](https://ginove-1252770243.cos.ap-guangzhou.myqcloud.com/jenkins/14.jpg)
+![](https://ginove-1252770243.cos.ap-guangzhou.myqcloud.com/jenkins/14.png)
 
 创建完成后，可以在控制台输出上查看输出，如下所示。
 
-![](https://ginove-1252770243.cos.ap-guangzhou.myqcloud.com/jenkins/15.jpg)
+![](https://ginove-1252770243.cos.ap-guangzhou.myqcloud.com/jenkins/15.png)
 
 请务必注意，由于Jenkins服务器配置为允许匿名创建，因此与Freestyle项目创建关联的用户是未知的。
 
 创建Job后，(受攻击的)可能性与脚本控制台访问几乎相同，但是对于攻击者只能重新配置Job的情况又该当如何呢？这些情况几乎相同，但是，攻击者必须编辑现有Job并调度一个构建。在下面的示例中，我们将重新配置“BackupProject”Freestyle项目以打印存储在凭证插件中的秘密信息。首先，选择一个可修改的项目的“Configure”选项。
 
-![](https://ginove-1252770243.cos.ap-guangzhou.myqcloud.com/jenkins/16.jpg)
+![](https://ginove-1252770243.cos.ap-guangzhou.myqcloud.com/jenkins/16.png)
 
 一旦选定，攻击者可以重新配置`Build Environment`以存储环境变量中的密钥和凭据。然后，可以在Build步骤中使用这些环境变量并输出到文件。此时，攻击者可以将结果输出到全局可访问的userContent文件夹（C://Program Files(x86)/Jenkins/userContent/）。
 
 在Windows系统环境中，使用％字符，而Unix系统则使用$字符来访问变量。
 
-![](https://ginove-1252770243.cos.ap-guangzhou.myqcloud.com/jenkins/17.jpg)
+![](https://ginove-1252770243.cos.ap-guangzhou.myqcloud.com/jenkins/17.png)
 
 创建好修改后的项目后，可以在以下位置查看结果： http：//jenkins/userContent/out.txt
 
-![](https://ginove-1252770243.cos.ap-guangzhou.myqcloud.com/jenkins/18.jpg)
+![](https://ginove-1252770243.cos.ap-guangzhou.myqcloud.com/jenkins/18.png)
 
 [userContent](https://wiki.jenkins.io/display/JENKINS/User+Content)文件夹是一个特殊的文件夹，其中的内容并不受`Overall/Read`权限访问之外的任何访问控制。在攻击者可能为现有的创建项目进行再修改的情况下，这个文件夹可以是存储凭证/秘密控制台输出的一个可行的位置。每次创建后，控制台输出结果（包括凭据/机密）都可以重定向到此文件夹。
 
