@@ -42,7 +42,7 @@ Jenkins是一个支持各种操作系统的Java应用程序，最常见的操作
 
 #### 脚本控制台
 [Jenkins脚本控制台](https://wiki.jenkins.io/display/JENKINS/Jenkins+Script+Console)是一个在Web控制台允许用户执行Jenkins Groovy脚本的可视应用程序。当访问它的时候，脚本控制台允许完全访问Java，并且可以利用它在Java运行时的进程中执行任何操作。最值得留意的是执行命令的能力，如下所示，适用于Linux和Windows安装。
-![](https://ginove-1252770243.cos.ap-guangzhou.myqcloud.com/jenkins/3.jpg)
+![](https://ginove-1252770243.cos.ap-guangzhou.myqcloud.com/jenkins/3.png)
 
 ![](https://ginove-1252770243.cos.ap-guangzhou.myqcloud.com/jenkins/4.jpg)
 
