@@ -64,7 +64,7 @@ Jenkins是一个支持各种操作系统的Java应用程序，最常见的操作
 ![](https://ginove-1252770243.cos.ap-guangzhou.myqcloud.com/jenkins/7.png)
 
 存储在`credentials.xml`文件中的密码短语也可以使用以下脚本从脚本控制台中直接解密：
-![](https://ginove-1252770243.cos.ap-guangzhou.myqcloud.com/jenkins/8.jpg)
+![](https://ginove-1252770243.cos.ap-guangzhou.myqcloud.com/jenkins/8.png)
 
 ![](https://ginove-1252770243.cos.ap-guangzhou.myqcloud.com/jenkins/9.png)
 
