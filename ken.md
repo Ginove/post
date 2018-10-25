@@ -44,13 +44,13 @@ Jenkins是一个支持各种操作系统的Java应用程序，最常见的操作
 [Jenkins脚本控制台](https://wiki.jenkins.io/display/JENKINS/Jenkins+Script+Console)是一个在Web控制台允许用户执行Jenkins Groovy脚本的可视应用程序。当访问它的时候，脚本控制台允许完全访问Java，并且可以利用它在Java运行时的进程中执行任何操作。最值得留意的是执行命令的能力，如下所示，适用于Linux和Windows安装。
 ![](https://ginove-1252770243.cos.ap-guangzhou.myqcloud.com/jenkins/3.png)
 
-![](https://ginove-1252770243.cos.ap-guangzhou.myqcloud.com/jenkins/4.jpg)
+![](https://ginove-1252770243.cos.ap-guangzhou.myqcloud.com/jenkins/4.png)
 
 在这儿，攻击者可以生成信标，列表文件，解密存储的密码等。请注意，使用[execute](http://docs.groovy-lang.org/latest/html/groovy-jdk/java/lang/String.html#execute(java.lang.String[],%20java.io.File)方法，所有命令都将作为Java进程的子进程（Windows上的Java.exe和Ubuntu上的/usr/bin/java）运行。
 
 在检测恶意Jenkins服务器活动时，检测恶意可疑的进程树是一个有用的指标。例如，通过脚本控制台生成PowerShell命令时，会发现以下情况：
 
-![https://ginove-1252770243.cos.ap-guangzhou.myqcloud.com/jenkins/5.jpg)
+![][https://ginove-1252770243.cos.ap-guangzhou.myqcloud.com/jenkins/5.png)
 
 
 在某些情况下，攻击者可能会选择通过使用内置的Java方法来避免产生命令和控制的方法，而不是依靠PowerShell来执行后期利用。在许多Jenkins妥协方案中，攻击者将会试着访问这些文件：`credentials.xml`，`master.key`和`hudson.util.Secret`。这些文件负责加密重要秘密信息的，在某些情况下，还负责存储凭据。`master.key`文件用于加密`hudson.util.Secret`文件，`hudson.util.Secret`文件用于加密凭证插件中的秘密信息。`credentials.xml`文件则包含Jenkins用户的加密密码和密钥。
