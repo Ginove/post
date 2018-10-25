@@ -2,11 +2,11 @@
 
 ## 滥用持续集成系统Jenkins
 
-> 名词解释： 
-- Post-Exploitation: 攻陷目标中的某一台或者多台主机之后做的一些事情，包括但不限于：识别已经拿下主机的价值以及维持访问。主机对于攻击者来说是否具有一定的价值、具有多大的价值主要从以下两个个方面考虑：是否有敏感信息、数据，是否能够在后期的渗透中发挥价值。比如被攻陷的主机是否是组织中的关键人物、高层领导、系统管理员，被攻陷的主机是够能够尽可能的有内网不同网段的访问权限等等。
-- Active Directory：Active Directory中文翻译为活动目录，这个概念不需要太过深入纠结，简单的理解它：Active Directory（活动目录）是微软Windows Server中，负责架构中大型网路环境的集中式目录管理服务（Directory Services），Windows 2000 Server开始内建于Windows Server产品中，它处理了在组织中的网路物件，物件可以是计算机，用户，群组，组织单元（OU）等等，只要是在Active Directory结构定义档（schema）中定义的物件，就可以储存在Active Directory资料档中，并利用Active Directory Service Interface来存取。
-- Groovy：Groovy是一种运行在JVM上的动态语言,它吸取了Python,Ruby和Smalltalk等语言的优点
-- Freestyle Project： Jenkins可用于执行典型的构建服务器工作，例如执行连续/官方/夜间构建，运行测试或执行一些重复的批处理任务。这被Jenkins被称为"Freestyle Project"
+>- 名词解释： 
+>- Post-Exploitation: 攻陷目标中的某一台或者多台主机之后做的一些事情，包括但不限于：识别已经拿下主机的价值以及维持访问。主机对于攻击者来说是否具有一定的价值、具有多大的价值主要从以下两个个方面考虑：是否有敏感信息、数据，是否能够在后期的渗透中发挥价值。比如被攻陷的主机是否是组织中的关键人物、高层领导、系统管理员，被攻陷的主机是够能够尽可能的有内网不同网段的访问权限等等。
+>- Active Directory：Active Directory中文翻译为活动目录，这个概念不需要太过深入纠结，简单的理解它：Active Directory（活动目录）是微软Windows Server中，负责架构中大型网路环境的集中式目录管理服务（Directory Services），Windows 2000 Server开始内建于Windows Server产品中，它处理了在组织中的网路物件，物件可以是计算机，用户，群组，组织单元（OU）等等，只要是在Active Directory结构定义档（schema）中定义的物件，就可以储存在Active Directory资料档中，并利用Active Directory Service Interface来存取。
+>- Groovy：Groovy是一种运行在JVM上的动态语言,它吸取了Python,Ruby和Smalltalk等语言的优点
+>- Freestyle Project： Jenkins可用于执行典型的构建服务器工作，例如执行连续/官方/夜间构建，运行测试或执行一些重复的批处理任务。这被Jenkins被称为"Freestyle Project"
 
 ### 介绍
 Jenkins是业界领先的开源自动化服务平台，在开发团队中很受欢迎。最近，我们观察到攻击者瞄准了大规模的[Jenkins服务器](https://jenkins.io/)，以部署[密码器](https://www.crowdstrike.com/blog/cryptomining-harmless-nuisance-disruptive-threat/。他们还发起了针对Jenkins目标的违规行为，以保持拥有开发者环境的访问权限。有几篇很好的博客文章讨论了通过漏洞，Web控制台和后期利用(Post-Exploitation)来获取Jenkins的权限。
