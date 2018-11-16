@@ -4,12 +4,12 @@ import os
 import base64
 
 def Readfile():
-        filepath = os.path.dirname(__file__)+os.sep
-        filename = 'xor.txt'
-        cipher = []
-        f = open(filepath+filename,'r').read()
-        cipher.extend(map(lambda i:int(f[i:i+2],16), range(0,len(f),2)))
-        return cipher
+        filename = 'cipher.txt'
+        cipherList = []
+        f = open(filename,'r').readlines()
+        cipher = base64.b64decode(f[0])
+        cipherList.extend(map(lambda i:ord(cipher[i]), range(0,len(cipher),1)))
+        return cipherList
 
 def getKeyPool(cipher, plaintext, keyset, keylenlist):
         KeyPool = {}
@@ -93,19 +93,17 @@ def main():
         '''
 
         cipher = Readfile()
-        plaintext = list(xrange(32,127))
-        keyset = list(xrange(0,256))
-        keylenlist = list(xrange(1,14))
+        print len(cipher)
+        plaintext = list(xrange(0xff))
+        keyset = list(xrange(32,128))
+        keylenlist = list(xrange(10,24))
 
-        KeyPool = getKeyPool(cipher=cipher, plaintext=plaintext, keyset=keyset, keylenlist=keylenlist)
+        keyPool = getKeyPool(cipher=cipher, plaintext=plaintext, keyset=keyset, keylenlist=keylenlist)
         #print KeyPool
-        for i in KeyPool:
-                freq = getFrequency(cipher,KeyPool[i])
-                #print freq
+        for i in keyPool:
+                freq = getFrequency(cipher, keyPool[i])
                 key = SelectFromFreq(freq)
-                #print key
-                plain = xorDecrypt(cipher,key)
-                print key,plain
+                print ''.join(map(chr,key))
 
 if __name__ == '__main__':
         main()
